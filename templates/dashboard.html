@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dashboard - GAuss</title>
+    <link href="https://cdn.jsdelivr.net/npm/beercss@3.8.0/dist/cdn/beer.min.css" rel="stylesheet">
+    <script type="module" src="https://cdn.jsdelivr.net/npm/beercss@3.8.0/dist/cdn/beer.min.js" defer></script>
+</head>
+<body class="surface">
+<!-- Simple Header -->
+<header class="padding">
+    <div class="container">
+        <div class="row space-between">
+            <h1 class="bold">GAuss</h1>
+            <form action="/logout" method="POST">
+                <button class="btn primary round" type="submit">
+                    <i class="icon left">logout</i>
+                    Sign Out
+                </button>
+            </form>
+        </div>
+    </div>
+</header>
+
+<!-- Main Content -->
+<main class="container margin-top-xl">
+    <div class="row">
+        <div class="col s12 m6 offset-m3">
+            <!-- Profile Card -->
+            <div class="card padding round-large">
+                <div class="center-align">
+                    <i class="icon xxl primary">account_circle</i>
+                    <h2 class="bold margin-top-s">{{.Name}}</h2>
+                    <p class="text-secondary">{{.Email}}</p>
+                    <img class="responsive-img" src="{{.Picture}}" alt="{{.Name}}">
+                </div>
+
+                <!-- Clear Info Sections -->
+                <div class="margin-top-xl">
+                    <div class="section">
+                        <p class="bold">Account Type</p>
+                        <div class="chip margin-top-s">
+                            <i class="icon left">google</i>
+                            Google OAuth
+                        </div>
+                    </div>
+
+                    <div class="divider"></div>
+
+                    <div class="section">
+                        <p class="bold">Security Status</p>
+                        <div class="flex align-center margin-top-s success-text">
+                            <i class="icon">check_circle</i>
+                            <span class="margin-left-s">All systems secure</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+</body>
+</html>

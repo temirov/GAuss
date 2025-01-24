@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login</title>
+    <link href="https://cdn.jsdelivr.net/npm/beercss@3.8.0/dist/cdn/beer.min.css" rel="stylesheet">
+    <script type="module" src="https://cdn.jsdelivr.net/npm/beercss@3.8.0/dist/cdn/beer.min.js"></script>
+    <script type="module"
+            src="https://cdn.jsdelivr.net/npm/material-dynamic-colors@1.1.2/dist/cdn/material-dynamic-colors.min.js"></script>
+</head>
+<body class="light">
+<main class="container">
+    <div class="row justify-center items-center min-h-screen">
+        <div class="card col-4">
+            <header class="row justify-between items-center">
+                <h3>Sign In</h3>
+                <button class="btn btn-ghost" onclick="toggleTheme()">
+                    <span id="theme-icon">🌙</span>
+                </button>
+            </header>
+            {{ if .error }}
+            <div class="card error margin-bottom round">
+                <div class="padding">
+                    <i class="icon">error</i>
+                    <span class="margin-left-s">{{ .error }}</span>
+                </div>
+            </div>
+            {{ end }}
+            <section>
+                <a href="/auth/google" class="btn btn-primary ripple w-full">
+                    <i class="material-icons">login</i>
+                    Continue with Google
+                </a>
+            </section>
+            <footer class="text-center">
+                <p>
+                    By continuing, you agree to our
+                    <a href="#" class="link">Terms of Service</a> and
+                    <a href="#" class="link">Privacy Policy</a>.
+                </p>
+            </footer>
+        </div>
+    </div>
+</main>
+
+<script>
+    function toggleTheme() {
+        const body = document.body;
+        const themeIcon = document.getElementById('theme-icon');
+        if (body.classList.contains('light')) {
+            body.classList.remove('light');
+            body.classList.add('dark');
+            themeIcon.textContent = '☀️';
+        } else {
+            body.classList.remove('dark');
+            body.classList.add('light');
+            themeIcon.textContent = '🌙';
+        }
+    }
+
+    function googleLogin() {
+        alert('Google OAuth login triggered!');
+        // Replace this with actual Google OAuth logic
+    }
+</script>
+</body>
+</html>
