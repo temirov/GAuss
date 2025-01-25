@@ -1,68 +1,88 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>Login</title>
-    <link href="https://cdn.jsdelivr.net/npm/beercss@3.8.0/dist/cdn/beer.min.css" rel="stylesheet">
-    <script type="module" src="https://cdn.jsdelivr.net/npm/beercss@3.8.0/dist/cdn/beer.min.js"></script>
-    <script type="module"
-            src="https://cdn.jsdelivr.net/npm/material-dynamic-colors@1.1.2/dist/cdn/material-dynamic-colors.min.js"></script>
+    <!-- BeerCSS + Material Dynamic Colors -->
+    <link
+            href="https://cdn.jsdelivr.net/npm/beercss@3.8.0/dist/cdn/beer.min.css"
+            rel="stylesheet"
+    />
+    <script
+            type="module"
+            src="https://cdn.jsdelivr.net/npm/beercss@3.8.0/dist/cdn/beer.min.js"
+    ></script>
+    <script
+            type="module"
+            src="https://cdn.jsdelivr.net/npm/material-dynamic-colors@1.1.2/dist/cdn/material-dynamic-colors.min.js"
+    ></script>
 </head>
+<!-- Start in light mode -->
 <body class="light">
-<main class="container">
-    <div class="row justify-center items-center min-h-screen">
-        <div class="card col-4">
-            <header class="row justify-between items-center">
-                <h3>Sign In</h3>
-                <button class="btn btn-ghost" onclick="toggleTheme()">
-                    <span id="theme-icon">🌙</span>
-                </button>
-            </header>
-            {{ if .error }}
-            <div class="card error margin-bottom round">
-                <div class="padding">
-                    <i class="icon">error</i>
-                    <span class="margin-left-s">{{ .error }}</span>
-                </div>
+<!-- Theme Toggle -->
+<div class="fixed front top right margin elevate-3">
+    <label class="switch icon cursor-pointer">
+        <input type="checkbox" id="theme-switch" onchange="toggleTheme()">
+        <span>
+                <i>light_mode</i>
+                <i>dark_mode</i>
+            </span>
+    </label>
+</div>
+<!-- Full-screen container that centers content -->
+<div class="fixed left right top bottom center-align middle-align">
+    <article class="card padding round">
+        <!-- Header / Title -->
+        <header class="row justify-between items-center">
+            <h3>Sign In</h3>
+        </header>
+
+        <!-- Optional error alert (templating stub) -->
+        {{ if .error }}
+        <div class="card error margin-top round">
+            <div class="padding">
+                <i class="icon">error</i>
+                <span class="margin-left-s">{{ .error }}</span>
             </div>
-            {{ end }}
-            <section>
-                <a href="/auth/google" class="btn btn-primary ripple w-full">
-                    <i class="material-icons">login</i>
-                    Continue with Google
-                </a>
-            </section>
-            <footer class="text-center">
-                <p>
-                    By continuing, you agree to our
-                    <a href="#" class="link">Terms of Service</a> and
-                    <a href="#" class="link">Privacy Policy</a>.
-                </p>
-            </footer>
         </div>
-    </div>
-</main>
+        {{ end }}
+
+        <!-- OAuth Button -->
+        <section class="margin-top">
+            <a href="/auth/google" class="button primary fill">
+                <i class="icon">login</i>
+                CONTINUE WITH GOOGLE
+            </a>
+        </section>
+
+        <!-- Footer (terms / privacy) -->
+        <footer class="center-align margin-top">
+            <p>
+                By continuing, you agree to our
+                <a href="#" class="link">Terms of Service</a> and
+                <a href="#" class="link">Privacy Policy</a>.
+            </p>
+        </footer>
+    </article>
+</div>
 
 <script>
+    // Toggle between light and dark classes on <body>
+    // using the checked/unchecked state of the switch
     function toggleTheme() {
-        const body = document.body;
-        const themeIcon = document.getElementById('theme-icon');
-        if (body.classList.contains('light')) {
-            body.classList.remove('light');
-            body.classList.add('dark');
-            themeIcon.textContent = '☀️';
-        } else {
-            body.classList.remove('dark');
-            body.classList.add('light');
-            themeIcon.textContent = '🌙';
-        }
+        const isDark = document.getElementById('theme-switch').checked;
+        document.body.classList.toggle('dark', isDark);
+        document.body.classList.toggle('light', !isDark);
+        localStorage.setItem('theme', isDark ? 'dark' : 'light');
     }
 
-    function googleLogin() {
-        alert('Google OAuth login triggered!');
-        // Replace this with actual Google OAuth logic
-    }
+    // Initialize theme on load
+    document.addEventListener('DOMContentLoaded', () => {
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        document.body.className = savedTheme;
+        document.getElementById('theme-switch').checked = savedTheme === 'dark';
+    });
 </script>
 </body>
 </html>
