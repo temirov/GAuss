@@ -1,6 +1,7 @@
 package gauss
 
 import (
+	"embed"
 	"github.com/temirov/GAuss/pkg/constants"
 	"github.com/temirov/GAuss/pkg/session"
 	"html/template"
@@ -18,6 +19,9 @@ const (
 	TemplatesPath  = "templates/*.html"
 )
 
+//go:embed templates/*.html
+var templatesFS embed.FS
+
 type Handlers struct {
 	service   *Service
 	store     *sessions.CookieStore
@@ -25,7 +29,7 @@ type Handlers struct {
 }
 
 func NewHandlers(service *Service) (*Handlers, error) {
-	templates, err := template.ParseGlob(TemplatesPath)
+	templates, err := template.ParseFS(templatesFS, TemplatesPath)
 	if err != nil {
 		return nil, err
 	}
