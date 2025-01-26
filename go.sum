@@ -8,8 +8,8 @@ github.com/gorilla/securecookie v1.1.2 h1:YCIWL56dvtr73r6715mJs5ZvhtnY73hBvEF8kX
 github.com/gorilla/securecookie v1.1.2/go.mod h1:NfCASbcHqRSY+3a8tlWJwsQap2VX5pwzwo4h3eOamfo=
 github.com/gorilla/sessions v1.4.0 h1:kpIYOp/oi6MG/p5PgxApU8srsSw9tuFbt46Lt7auzqQ=
 github.com/gorilla/sessions v1.4.0/go.mod h1:FLWm50oby91+hl7p/wRxDth9bWSuk0qVL2emc7lT5ik=
-github.com/temirov/utils v0.0.5 h1:3rKB1c7Y7FfwEOub1WQSOmHprqf0mScMyNuyk+vuz1c=
-github.com/temirov/utils v0.0.5/go.mod h1:OnP/WDC1sEZyyksI4UOyrl20I9kUjbbtwqfkWjFtbPU=
+github.com/temirov/utils v0.0.6 h1:hgUWj9I0tvrG0qGbuk90+XC9zvhZWR0vnu/vrecPs2c=
+github.com/temirov/utils v0.0.6/go.mod h1:OnP/WDC1sEZyyksI4UOyrl20I9kUjbbtwqfkWjFtbPU=
 golang.org/x/oauth2 v0.25.0 h1:CY4y7XT9v0cRI9oupztF8AgiIu99L/ksR/Xp/6jrZ70=
 golang.org/x/oauth2 v0.25.0/go.mod h1:XYTD2NtWslqkgxebSiOHnXEap4TF09sJSc7H1sXbhtI=
 golang.org/x/sys v0.29.0 h1:TPYlXGxvx1MGTn2GiZDhnjPA9wZzZeGKHHmKhHYvgaU=

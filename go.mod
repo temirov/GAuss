@@ -4,7 +4,7 @@ go 1.23.4
 
 require (
 	github.com/gorilla/sessions v1.4.0
-	github.com/temirov/utils v0.0.5
+	github.com/temirov/utils v0.0.6
 	golang.org/x/oauth2 v0.25.0
 )
 
