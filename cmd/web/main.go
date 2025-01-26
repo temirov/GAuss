@@ -4,10 +4,10 @@ import (
 	"github.com/temirov/GAuss/pkg/constants"
 	"github.com/temirov/GAuss/pkg/dash"
 	"github.com/temirov/GAuss/pkg/session"
+	"github.com/temirov/utils/system"
 	"html/template"
 	"log"
 	"net/http"
-	"os"
 
 	"github.com/temirov/GAuss/pkg/gauss"
 )
@@ -17,18 +17,10 @@ const (
 	Root          = "/"
 )
 
-func GetEnvOrFail(name string) string {
-	value := os.Getenv(name)
-	if value == "" {
-		log.Fatalf("%s environment variable not set", name)
-	}
-	return value
-}
-
 func main() {
-	clientSecret := GetEnvOrFail("SESSION_SECRET")
-	googleClientID := GetEnvOrFail("GOOGLE_CLIENT_ID")
-	googleClientSecret := GetEnvOrFail("GOOGLE_CLIENT_SECRET")
+	clientSecret := system.GetEnvOrFail("SESSION_SECRET")
+	googleClientID := system.GetEnvOrFail("GOOGLE_CLIENT_ID")
+	googleClientSecret := system.GetEnvOrFail("GOOGLE_CLIENT_SECRET")
 
 	session.NewSession([]byte(clientSecret))
 
