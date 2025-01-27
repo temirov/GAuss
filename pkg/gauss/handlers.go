@@ -4,6 +4,7 @@ import (
 	"embed"
 	"github.com/temirov/GAuss/pkg/constants"
 	"github.com/temirov/GAuss/pkg/session"
+	"golang.org/x/oauth2"
 	"html/template"
 	"log"
 	"net/http"
@@ -83,7 +84,8 @@ func (handlers *Handlers) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	authURL := handlers.service.config.AuthCodeURL(state)
+	authURL := handlers.service.config.AuthCodeURL(state, oauth2.SetAuthURLParam("prompt", "select_account"))
+
 	http.Redirect(w, r, authURL, http.StatusFound)
 }
 
