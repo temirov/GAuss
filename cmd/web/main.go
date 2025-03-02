@@ -15,6 +15,7 @@ import (
 const (
 	DashboardPath = "/dashboard"
 	Root          = "/"
+	appBase       = "http://localhost:8080/"
 )
 
 func main() {
@@ -24,7 +25,7 @@ func main() {
 
 	session.NewSession([]byte(clientSecret))
 
-	authService, err := gauss.NewService(googleClientID, googleClientSecret, DashboardPath)
+	authService, err := gauss.NewService(googleClientID, googleClientSecret, appBase, DashboardPath)
 	if err != nil {
 		log.Fatalf("Failed to initialize auth service: %v", err)
 	}
@@ -54,7 +55,7 @@ func main() {
 	mux.Handle(Root, gauss.AuthMiddleware(http.HandlerFunc(rootHandler)))
 
 	log.Printf("Server starting on :8080")
-	log.Fatal(http.ListenAndServe(":8080", mux))
+	log.Fatal(http.ListenAndServe("localhost:8080", mux))
 }
 
 func rootHandler(w http.ResponseWriter, r *http.Request) {

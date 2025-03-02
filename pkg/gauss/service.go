@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
@@ -24,14 +25,21 @@ type Service struct {
 	localRedirectURL string
 }
 
-func NewService(clientID, clientSecret, localRedirectURL string) (*Service, error) {
+func NewService(clientID, clientSecret, googleOAuthBase, localRedirectURL string) (*Service, error) {
 	if clientID == "" || clientSecret == "" {
 		return nil, errors.New("missing Google OAuth credentials")
 	}
 
+	baseURL, googleOAuthBaseErr := url.Parse(googleOAuthBase)
+	if googleOAuthBaseErr != nil {
+		return nil, errors.New("invalid Google OAuth base URL")
+	}
+	relativePath, _ := url.Parse(CallbackPath)
+	redirectURL := baseURL.ResolveReference(relativePath)
+
 	return &Service{
 		config: &oauth2.Config{
-			RedirectURL:  "http://localhost:8080/auth/google/callback",
+			RedirectURL:  redirectURL.String(),
 			ClientID:     clientID,
 			ClientSecret: clientSecret,
 			Scopes:       []string{"profile", "email"},
