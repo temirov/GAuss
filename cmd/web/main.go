@@ -60,7 +60,7 @@ func main() {
 
 func rootHandler(w http.ResponseWriter, r *http.Request) {
 	webSession, _ := session.Store().Get(r, constants.SessionName)
-	if webSession.Values["user_email"] != nil {
+	if webSession.Values[constants.SessionKeyUserEmail] != nil {
 		// User is logged in, redirect to dashboard
 		http.Redirect(w, r, DashboardPath, http.StatusFound)
 		return

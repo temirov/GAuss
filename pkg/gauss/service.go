@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/temirov/GAuss/pkg/constants"
 	"net/http"
 	"net/url"
 
@@ -25,7 +26,7 @@ type Service struct {
 	localRedirectURL string
 }
 
-func NewService(clientID, clientSecret, googleOAuthBase, localRedirectURL string) (*Service, error) {
+func NewService(clientID string, clientSecret string, googleOAuthBase string, localRedirectURL string) (*Service, error) {
 	if clientID == "" || clientSecret == "" {
 		return nil, errors.New("missing Google OAuth credentials")
 	}
@@ -34,7 +35,7 @@ func NewService(clientID, clientSecret, googleOAuthBase, localRedirectURL string
 	if googleOAuthBaseErr != nil {
 		return nil, errors.New("invalid Google OAuth base URL")
 	}
-	relativePath, _ := url.Parse(CallbackPath)
+	relativePath, _ := url.Parse(constants.CallbackPath)
 	redirectURL := baseURL.ResolveReference(relativePath)
 
 	return &Service{
@@ -49,30 +50,30 @@ func NewService(clientID, clientSecret, googleOAuthBase, localRedirectURL string
 	}, nil
 }
 
-func (s *Service) GenerateState() (string, error) {
-	b := make([]byte, 32)
-	_, err := rand.Read(b)
-	if err != nil {
-		return "", fmt.Errorf("failed to generate state: %w", err)
+func (serviceInstance *Service) GenerateState() (string, error) {
+	randomBytes := make([]byte, 32)
+	_, readError := rand.Read(randomBytes)
+	if readError != nil {
+		return "", fmt.Errorf("failed to generate state: %w", readError)
 	}
-	return base64.URLEncoding.EncodeToString(b), nil
+	return base64.URLEncoding.EncodeToString(randomBytes), nil
 }
 
-func (s *Service) GetUser(token *oauth2.Token) (*GoogleUser, error) {
-	client := s.config.Client(context.Background(), token)
-	resp, err := client.Get("https://www.googleapis.com/oauth2/v2/userinfo")
-	if err != nil {
-		return nil, fmt.Errorf("failed to get user info: %w", err)
+func (serviceInstance *Service) GetUser(oauthToken *oauth2.Token) (*GoogleUser, error) {
+	httpClient := serviceInstance.config.Client(context.Background(), oauthToken)
+	httpResponse, httpError := httpClient.Get("https://www.googleapis.com/oauth2/v2/userinfo")
+	if httpError != nil {
+		return nil, fmt.Errorf("failed to get user info: %w", httpError)
 	}
-	defer resp.Body.Close()
+	defer httpResponse.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("google API returned status %d", resp.StatusCode)
+	if httpResponse.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("google API returned status %d", httpResponse.StatusCode)
 	}
 
 	var user GoogleUser
-	if err := json.NewDecoder(resp.Body).Decode(&user); err != nil {
-		return nil, fmt.Errorf("failed to decode user info: %w", err)
+	if decodeError := json.NewDecoder(httpResponse.Body).Decode(&user); decodeError != nil {
+		return nil, fmt.Errorf("failed to decode user info: %w", decodeError)
 	}
 
 	return &user, nil

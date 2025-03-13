@@ -2,6 +2,7 @@ package dash
 
 import (
 	"github.com/gorilla/sessions"
+	"github.com/temirov/GAuss/pkg/constants"
 )
 
 type Service struct {
@@ -14,8 +15,8 @@ func NewService() *Service {
 
 func (s *Service) GetUserData(session *sessions.Session) map[string]interface{} {
 	return map[string]interface{}{
-		"Name":    session.Values["user_name"],
-		"Email":   session.Values["user_email"],
-		"Picture": session.Values["user_picture"],
+		"Name":    session.Values[constants.SessionKeyUserName],
+		"Email":   session.Values[constants.SessionKeyUserEmail],
+		"Picture": session.Values[constants.SessionKeyUserPicture],
 	}
 }

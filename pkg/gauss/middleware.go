@@ -6,13 +6,13 @@ import (
 	"net/http"
 )
 
-func AuthMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		webSession, _ := session.Store().Get(r, constants.SessionName)
-		if webSession.Values["user_email"] == nil {
-			http.Redirect(w, r, "/login", http.StatusFound)
+func AuthMiddleware(nextHandler http.Handler) http.Handler {
+	return http.HandlerFunc(func(responseWriter http.ResponseWriter, request *http.Request) {
+		webSession, _ := session.Store().Get(request, constants.SessionName)
+		if webSession.Values[constants.SessionKeyUserEmail] == nil {
+			http.Redirect(responseWriter, request, constants.LoginPath, http.StatusFound)
 			return
 		}
-		next.ServeHTTP(w, r)
+		nextHandler.ServeHTTP(responseWriter, request)
 	})
 }

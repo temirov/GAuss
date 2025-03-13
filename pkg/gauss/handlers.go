@@ -12,16 +12,8 @@ import (
 	"github.com/gorilla/sessions"
 )
 
-const (
-	LoginPath      = "/login"
-	GoogleAuthPath = "/auth/google"
-	CallbackPath   = "/auth/google/callback"
-	LogoutPath     = "/logout"
-	TemplatesPath  = "templates/*.html"
-)
-
 //go:embed templates/*.html
-var templatesFS embed.FS
+var templatesFileSystem embed.FS
 
 type Handlers struct {
 	service   *Service
@@ -29,118 +21,117 @@ type Handlers struct {
 	templates *template.Template
 }
 
-func NewHandlers(service *Service) (*Handlers, error) {
-	templates, err := template.ParseFS(templatesFS, TemplatesPath)
-	if err != nil {
-		return nil, err
+func NewHandlers(serviceInstance *Service) (*Handlers, error) {
+	parsedTemplates, parseError := template.ParseFS(templatesFileSystem, constants.TemplatesPath)
+	if parseError != nil {
+		return nil, parseError
 	}
 
-	store := session.Store()
+	cookieStore := session.Store()
 
 	return &Handlers{
-		service:   service,
-		store:     store,
-		templates: templates,
+		service:   serviceInstance,
+		store:     cookieStore,
+		templates: parsedTemplates,
 	}, nil
 }
 
-func (handlers *Handlers) RegisterRoutes(mux *http.ServeMux) *http.ServeMux {
-	mux.HandleFunc(LoginPath, handlers.loginHandler)
-	mux.HandleFunc(GoogleAuthPath, handlers.Login)
-	mux.HandleFunc(CallbackPath, handlers.Callback)
-	mux.HandleFunc(LogoutPath, handlers.Logout)
+func (handlersInstance *Handlers) RegisterRoutes(httpMux *http.ServeMux) *http.ServeMux {
+	httpMux.HandleFunc(constants.LoginPath, handlersInstance.loginHandler)
+	httpMux.HandleFunc(constants.GoogleAuthPath, handlersInstance.Login)
+	httpMux.HandleFunc(constants.CallbackPath, handlersInstance.Callback)
+	httpMux.HandleFunc(constants.LogoutPath, handlersInstance.Logout)
 
-	return mux
+	return httpMux
 }
 
-func (handlers *Handlers) redirectToLogin(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/" {
-		http.NotFound(w, r)
+func (handlersInstance *Handlers) loginHandler(responseWriter http.ResponseWriter, request *http.Request) {
+	dataMap := map[string]interface{}{
+		"error": request.URL.Query().Get("error"),
+	}
+	templateParsingError := handlersInstance.templates.ExecuteTemplate(responseWriter, "login.html", dataMap)
+	if templateParsingError != nil {
+		http.Error(responseWriter, templateParsingError.Error(), http.StatusInternalServerError)
 		return
 	}
-	http.Redirect(w, r, LoginPath, http.StatusFound)
 }
 
-func (handlers *Handlers) loginHandler(w http.ResponseWriter, r *http.Request) {
-	data := map[string]interface{}{
-		"error": r.URL.Query().Get("error"),
-	}
-	handlers.templates.ExecuteTemplate(w, "login.html", data)
-}
-
-func (handlers *Handlers) Login(w http.ResponseWriter, r *http.Request) {
-	state, err := handlers.service.GenerateState()
-	if err != nil {
-		log.Printf("Failed to generate state: %v", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+func (handlersInstance *Handlers) Login(responseWriter http.ResponseWriter, request *http.Request) {
+	stateValue, stateError := handlersInstance.service.GenerateState()
+	if stateError != nil {
+		log.Printf("Failed to generate state: %v", stateError)
+		http.Error(responseWriter, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
-	webSession, _ := handlers.store.Get(r, constants.SessionName)
-	webSession.Values["oauth_state"] = state
-	if sessionError := webSession.Save(r, w); sessionError != nil {
-		log.Printf("Failed to save session: %v", sessionError)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	webSession, _ := handlersInstance.store.Get(request, constants.SessionName)
+	webSession.Values["oauth_state"] = stateValue
+	if sessionSaveError := webSession.Save(request, responseWriter); sessionSaveError != nil {
+		log.Printf("Failed to save session: %v", sessionSaveError)
+		http.Error(responseWriter, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
-	authURL := handlers.service.config.AuthCodeURL(state, oauth2.SetAuthURLParam("prompt", "select_account"))
-
-	http.Redirect(w, r, authURL, http.StatusFound)
+	authorizationURL := handlersInstance.service.config.AuthCodeURL(stateValue, oauth2.SetAuthURLParam("prompt", "select_account"))
+	http.Redirect(responseWriter, request, authorizationURL, http.StatusFound)
 }
 
-func (handlers *Handlers) Callback(w http.ResponseWriter, request *http.Request) {
-	webSession, _ := handlers.store.Get(request, constants.SessionName)
-	storedState, ok := webSession.Values["oauth_state"].(string)
-	if !ok {
+func (handlersInstance *Handlers) Callback(responseWriter http.ResponseWriter, request *http.Request) {
+	webSession, _ := handlersInstance.store.Get(request, constants.SessionName)
+	storedStateValue, stateOk := webSession.Values["oauth_state"].(string)
+	if !stateOk {
 		log.Println("Missing state in session")
-		http.Redirect(w, request, LoginPath+"?error=missing_state", http.StatusFound)
+		http.Redirect(responseWriter, request, constants.LoginPath+"?error=missing_state", http.StatusFound)
 		return
 	}
 
-	queryState := request.URL.Query().Get("state")
-	if storedState != queryState {
-		log.Printf("State mismatch: stored %s vs received %s", storedState, queryState)
-		http.Redirect(w, request, LoginPath+"?error=invalid_state", http.StatusFound)
+	receivedStateValue := request.URL.Query().Get("state")
+	if storedStateValue != receivedStateValue {
+		log.Printf("State mismatch: stored %s vs received %s", storedStateValue, receivedStateValue)
+		http.Redirect(responseWriter, request, constants.LoginPath+"?error=invalid_state", http.StatusFound)
 		return
 	}
 
-	code := request.URL.Query().Get("code")
-	if code == "" {
+	authorizationCode := request.URL.Query().Get("code")
+	if authorizationCode == "" {
 		log.Println("Missing authorization code")
-		http.Redirect(w, request, LoginPath+"?error=missing_code", http.StatusFound)
+		http.Redirect(responseWriter, request, constants.LoginPath+"?error=missing_code", http.StatusFound)
 		return
 	}
 
-	token, err := handlers.service.config.Exchange(request.Context(), code)
-	if err != nil {
-		log.Printf("Token exchange failed: %v", err)
-		http.Redirect(w, request, LoginPath+"?error=token_exchange_failed", http.StatusFound)
+	oauthToken, tokenExchangeError := handlersInstance.service.config.Exchange(request.Context(), authorizationCode)
+	if tokenExchangeError != nil {
+		log.Printf("Token exchange failed: %v", tokenExchangeError)
+		http.Redirect(responseWriter, request, constants.LoginPath+"?error=token_exchange_failed", http.StatusFound)
 		return
 	}
 
-	user, err := handlers.service.GetUser(token)
-	if err != nil {
-		log.Printf("Failed to get user info: %v", err)
-		http.Redirect(w, request, LoginPath+"?error=user_info_failed", http.StatusFound)
+	googleUser, getUserError := handlersInstance.service.GetUser(oauthToken)
+	if getUserError != nil {
+		log.Printf("Failed to get user info: %v", getUserError)
+		http.Redirect(responseWriter, request, constants.LoginPath+"?error=user_info_failed", http.StatusFound)
 		return
 	}
 
-	webSession.Values["user_email"] = user.Email
-	webSession.Values["user_name"] = user.Name
-	webSession.Values["user_picture"] = user.Picture
-	if sessionSaveError := webSession.Save(request, w); sessionSaveError != nil {
+	webSession.Values[constants.SessionKeyUserEmail] = googleUser.Email
+	webSession.Values[constants.SessionKeyUserName] = googleUser.Name
+	webSession.Values[constants.SessionKeyUserPicture] = googleUser.Picture
+	if sessionSaveError := webSession.Save(request, responseWriter); sessionSaveError != nil {
 		log.Printf("Failed to save user session: %v", sessionSaveError)
-		http.Redirect(w, request, LoginPath+"?error=session_save_failed", http.StatusFound)
+		http.Redirect(responseWriter, request, constants.LoginPath+"?error=session_save_failed", http.StatusFound)
 		return
 	}
 
-	http.Redirect(w, request, handlers.service.localRedirectURL, http.StatusFound)
+	http.Redirect(responseWriter, request, handlersInstance.service.localRedirectURL, http.StatusFound)
 }
 
-func (handlers *Handlers) Logout(w http.ResponseWriter, r *http.Request) {
-	webSession, _ := handlers.store.Get(r, constants.SessionName)
+func (handlersInstance *Handlers) Logout(responseWriter http.ResponseWriter, request *http.Request) {
+	webSession, _ := handlersInstance.store.Get(request, constants.SessionName)
 	webSession.Options.MaxAge = -1
-	webSession.Save(r, w)
-	http.Redirect(w, r, LoginPath, http.StatusFound)
+	webSessionSaveError := webSession.Save(request, responseWriter)
+	if webSessionSaveError != nil {
+		http.Error(responseWriter, webSessionSaveError.Error(), http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(responseWriter, request, constants.LoginPath, http.StatusFound)
 }
