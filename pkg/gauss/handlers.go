@@ -2,29 +2,43 @@ package gauss
 
 import (
 	"embed"
-	"github.com/temirov/GAuss/pkg/constants"
-	"github.com/temirov/GAuss/pkg/session"
-	"golang.org/x/oauth2"
 	"html/template"
 	"log"
 	"net/http"
+	"path/filepath"
 
 	"github.com/gorilla/sessions"
+	"github.com/temirov/GAuss/pkg/constants"
+	"github.com/temirov/GAuss/pkg/session"
+	"golang.org/x/oauth2"
 )
 
 //go:embed templates/*.html
 var templatesFileSystem embed.FS
 
+// Handlers bundles the GAuss service, session store, and HTML templates used for authentication.
 type Handlers struct {
 	service   *Service
 	store     *sessions.CookieStore
 	templates *template.Template
 }
 
+// NewHandlers creates a new Handlers instance using the GAuss service.
+// It uses the service's LoginTemplate field: if it is non-empty, the template
+// is loaded from the provided file path; otherwise, the default embedded templates
+// (as specified by constants.TemplatesPath) are parsed.
 func NewHandlers(serviceInstance *Service) (*Handlers, error) {
-	parsedTemplates, parseError := template.ParseFS(templatesFileSystem, constants.TemplatesPath)
-	if parseError != nil {
-		return nil, parseError
+	var (
+		parsedTemplates *template.Template
+		err             error
+	)
+	if serviceInstance.LoginTemplate != "" {
+		parsedTemplates, err = template.ParseFiles(serviceInstance.LoginTemplate)
+	} else {
+		parsedTemplates, err = template.ParseFS(templatesFileSystem, constants.TemplatesPath)
+	}
+	if err != nil {
+		return nil, err
 	}
 
 	cookieStore := session.Store()
@@ -36,6 +50,7 @@ func NewHandlers(serviceInstance *Service) (*Handlers, error) {
 	}, nil
 }
 
+// RegisterRoutes registers the authentication routes.
 func (handlersInstance *Handlers) RegisterRoutes(httpMux *http.ServeMux) *http.ServeMux {
 	httpMux.HandleFunc(constants.LoginPath, handlersInstance.loginHandler)
 	httpMux.HandleFunc(constants.GoogleAuthPath, handlersInstance.Login)
@@ -45,17 +60,34 @@ func (handlersInstance *Handlers) RegisterRoutes(httpMux *http.ServeMux) *http.S
 	return httpMux
 }
 
+// loginHandler renders the login page.
+// It looks up the template by the base name of the custom template file if provided,
+// or defaults to constants.DefaultTemplateName.
 func (handlersInstance *Handlers) loginHandler(responseWriter http.ResponseWriter, request *http.Request) {
 	dataMap := map[string]interface{}{
 		"error": request.URL.Query().Get("error"),
 	}
-	templateParsingError := handlersInstance.templates.ExecuteTemplate(responseWriter, "login.html", dataMap)
-	if templateParsingError != nil {
-		http.Error(responseWriter, templateParsingError.Error(), http.StatusInternalServerError)
+
+	var templateName string
+	if handlersInstance.service.LoginTemplate != "" {
+		templateName = filepath.Base(handlersInstance.service.LoginTemplate)
+	} else {
+		templateName = constants.DefaultTemplateName
+	}
+
+	tmpl := handlersInstance.templates.Lookup(templateName)
+	if tmpl == nil {
+		http.Error(responseWriter, "Login template not found", http.StatusInternalServerError)
+		return
+	}
+
+	if err := tmpl.Execute(responseWriter, dataMap); err != nil {
+		http.Error(responseWriter, err.Error(), http.StatusInternalServerError)
 		return
 	}
 }
 
+// Login handles the OAuth2 login process.
 func (handlersInstance *Handlers) Login(responseWriter http.ResponseWriter, request *http.Request) {
 	stateValue, stateError := handlersInstance.service.GenerateState()
 	if stateError != nil {
@@ -76,6 +108,7 @@ func (handlersInstance *Handlers) Login(responseWriter http.ResponseWriter, requ
 	http.Redirect(responseWriter, request, authorizationURL, http.StatusFound)
 }
 
+// Callback handles the OAuth2 callback, validates the state and code, and logs the user in.
 func (handlersInstance *Handlers) Callback(responseWriter http.ResponseWriter, request *http.Request) {
 	webSession, _ := handlersInstance.store.Get(request, constants.SessionName)
 	storedStateValue, stateOk := webSession.Values["oauth_state"].(string)
@@ -125,11 +158,11 @@ func (handlersInstance *Handlers) Callback(responseWriter http.ResponseWriter, r
 	http.Redirect(responseWriter, request, handlersInstance.service.localRedirectURL, http.StatusFound)
 }
 
+// Logout clears the user session and redirects to the login page.
 func (handlersInstance *Handlers) Logout(responseWriter http.ResponseWriter, request *http.Request) {
 	webSession, _ := handlersInstance.store.Get(request, constants.SessionName)
 	webSession.Options.MaxAge = -1
-	webSessionSaveError := webSession.Save(request, responseWriter)
-	if webSessionSaveError != nil {
+	if webSessionSaveError := webSession.Save(request, responseWriter); webSessionSaveError != nil {
 		http.Error(responseWriter, webSessionSaveError.Error(), http.StatusInternalServerError)
 		return
 	}

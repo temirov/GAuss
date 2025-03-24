@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GAuss Login</title>
+    <!-- Use built-in BeerCSS and Material Dynamic Colors; no custom CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/beercss@3.8.0/dist/cdn/beer.min.css" rel="stylesheet" />
+    <script type="module" src="https://cdn.jsdelivr.net/npm/beercss@3.8.0/dist/cdn/beer.min.js"></script>
+    <script type="module" src="https://cdn.jsdelivr.net/npm/material-dynamic-colors@1.1.2/dist/cdn/material-dynamic-colors.min.js"></script>
+</head>
+<body class="light">
+<!-- Full-screen container using built-in utility classes -->
+<div class="fixed left right top bottom center-align middle-align">
+    <div class="card round padding elevate-3">
+        <h1 class="margin-bottom-s">Welcome to GAuss</h1>
+        <p class="margin-bottom-m">Sign in to continue</p>
+        <a href="/auth/google" class="button primary fill margin-top-s">
+            <i class="icon">login</i> Sign in with Google
+        </a>
+        <footer class="margin-top-m">
+            <p class="small-text">
+                By signing in, you agree to our
+                <a href="#" class="link">Terms of Service</a> and
+                <a href="#" class="link">Privacy Policy</a>.
+            </p>
+        </footer>
+    </div>
+</div>
+<script>
+    // Apply saved theme preference on load
+    document.addEventListener('DOMContentLoaded', function() {
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        document.body.className = savedTheme;
+    });
+</script>
+</body>
+</html>

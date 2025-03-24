@@ -7,26 +7,34 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/temirov/GAuss/pkg/constants"
 	"net/http"
 	"net/url"
 
+	"github.com/temirov/GAuss/pkg/constants"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 )
 
+// GoogleUser represents a user profile retrieved from Google.
 type GoogleUser struct {
 	Email   string `json:"email"`
 	Name    string `json:"name"`
 	Picture string `json:"picture"`
 }
 
+// Service encapsulates OAuth2 configuration and redirection settings.
+// The LoginTemplate field, if non-empty, specifies the HTML template filename
+// to be used for login instead of the default "login.html".
 type Service struct {
 	config           *oauth2.Config
 	localRedirectURL string
+	LoginTemplate    string
 }
 
-func NewService(clientID string, clientSecret string, googleOAuthBase string, localRedirectURL string) (*Service, error) {
+// NewService initializes a new Service instance.
+// The customLoginTemplate parameter is the filename (e.g. "custom_login.html") to be used for the login page.
+// Pass an empty string to use the default template.
+func NewService(clientID string, clientSecret string, googleOAuthBase string, localRedirectURL string, customLoginTemplate string) (*Service, error) {
 	if clientID == "" || clientSecret == "" {
 		return nil, errors.New("missing Google OAuth credentials")
 	}
@@ -47,9 +55,11 @@ func NewService(clientID string, clientSecret string, googleOAuthBase string, lo
 			Endpoint:     google.Endpoint,
 		},
 		localRedirectURL: localRedirectURL,
+		LoginTemplate:    customLoginTemplate,
 	}, nil
 }
 
+// GenerateState creates a new random state string.
 func (serviceInstance *Service) GenerateState() (string, error) {
 	randomBytes := make([]byte, 32)
 	_, readError := rand.Read(randomBytes)
@@ -59,6 +69,7 @@ func (serviceInstance *Service) GenerateState() (string, error) {
 	return base64.URLEncoding.EncodeToString(randomBytes), nil
 }
 
+// GetUser retrieves the Google user profile for the given OAuth2 token.
 func (serviceInstance *Service) GetUser(oauthToken *oauth2.Token) (*GoogleUser, error) {
 	httpClient := serviceInstance.config.Client(context.Background(), oauthToken)
 	httpResponse, httpError := httpClient.Get("https://www.googleapis.com/oauth2/v2/userinfo")

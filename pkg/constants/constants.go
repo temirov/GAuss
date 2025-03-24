@@ -1,11 +1,12 @@
 package constants
 
 const (
-	LoginPath      = "/login"
-	GoogleAuthPath = "/auth/google"
-	CallbackPath   = "/auth/google/callback"
-	LogoutPath     = "/logout"
-	TemplatesPath  = "templates/*.html"
+	LoginPath           = "/login"
+	GoogleAuthPath      = "/auth/google"
+	CallbackPath        = "/auth/google/callback"
+	LogoutPath          = "/logout"
+	TemplatesPath       = "templates/*.html"
+	DefaultTemplateName = "login.html"
 
 	SessionKeyUserEmail   = "user_email"
 	SessionKeyUserName    = "user_name"
