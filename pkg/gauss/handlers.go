@@ -16,17 +16,18 @@ import (
 //go:embed templates/*.html
 var templatesFileSystem embed.FS
 
-// Handlers bundles the GAuss service, session store, and HTML templates used for authentication.
+// Handlers bundles the GAuss service, session store, and HTML templates used
+// for authentication. Instances of Handlers register HTTP endpoints that
+// implement the login and callback workflow.
 type Handlers struct {
 	service   *Service
 	store     *sessions.CookieStore
 	templates *template.Template
 }
 
-// NewHandlers creates a new Handlers instance using the GAuss service.
-// It uses the service's LoginTemplate field: if it is non-empty, the template
-// is loaded from the provided file path; otherwise, the default embedded templates
-// (as specified by constants.TemplatesPath) are parsed.
+// NewHandlers constructs a Handlers value from a Service. It loads the login
+// templates either from the custom path specified on the Service or from the
+// embedded templates bundled with GAuss.
 func NewHandlers(serviceInstance *Service) (*Handlers, error) {
 	var (
 		parsedTemplates *template.Template
@@ -50,7 +51,8 @@ func NewHandlers(serviceInstance *Service) (*Handlers, error) {
 	}, nil
 }
 
-// RegisterRoutes registers the authentication routes.
+// RegisterRoutes installs the GAuss authentication handlers onto the provided
+// ServeMux. It returns the mux for convenience so it can be used inline.
 func (handlersInstance *Handlers) RegisterRoutes(httpMux *http.ServeMux) *http.ServeMux {
 	httpMux.HandleFunc(constants.LoginPath, handlersInstance.loginHandler)
 	httpMux.HandleFunc(constants.GoogleAuthPath, handlersInstance.Login)
@@ -60,9 +62,9 @@ func (handlersInstance *Handlers) RegisterRoutes(httpMux *http.ServeMux) *http.S
 	return httpMux
 }
 
-// loginHandler renders the login page.
-// It looks up the template by the base name of the custom template file if provided,
-// or defaults to constants.DefaultTemplateName.
+// loginHandler renders the login page. If a custom template was supplied when
+// creating the Service it is used; otherwise the embedded template named by
+// constants.DefaultTemplateName is executed.
 func (handlersInstance *Handlers) loginHandler(responseWriter http.ResponseWriter, request *http.Request) {
 	dataMap := map[string]interface{}{
 		"error": request.URL.Query().Get("error"),
@@ -87,7 +89,9 @@ func (handlersInstance *Handlers) loginHandler(responseWriter http.ResponseWrite
 	}
 }
 
-// Login handles the OAuth2 login process.
+// Login initiates the OAuth2 flow with Google by generating a state value,
+// storing it in the session and redirecting the user to Google's authorization
+// endpoint.
 func (handlersInstance *Handlers) Login(responseWriter http.ResponseWriter, request *http.Request) {
 	stateValue, stateError := handlersInstance.service.GenerateState()
 	if stateError != nil {
@@ -108,7 +112,9 @@ func (handlersInstance *Handlers) Login(responseWriter http.ResponseWriter, requ
 	http.Redirect(responseWriter, request, authorizationURL, http.StatusFound)
 }
 
-// Callback handles the OAuth2 callback, validates the state and code, and logs the user in.
+// Callback completes the OAuth2 flow. It validates the state value, exchanges
+// the code for a token and stores the retrieved user information in the
+// session before redirecting to the configured post-login URL.
 func (handlersInstance *Handlers) Callback(responseWriter http.ResponseWriter, request *http.Request) {
 	webSession, _ := handlersInstance.store.Get(request, constants.SessionName)
 	storedStateValue, stateOk := webSession.Values["oauth_state"].(string)
@@ -158,7 +164,8 @@ func (handlersInstance *Handlers) Callback(responseWriter http.ResponseWriter, r
 	http.Redirect(responseWriter, request, handlersInstance.service.localRedirectURL, http.StatusFound)
 }
 
-// Logout clears the user session and redirects to the login page.
+// Logout removes all authentication information from the session and redirects
+// the client to the login page.
 func (handlersInstance *Handlers) Logout(responseWriter http.ResponseWriter, request *http.Request) {
 	webSession, _ := handlersInstance.store.Get(request, constants.SessionName)
 	webSession.Options.MaxAge = -1

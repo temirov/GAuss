@@ -22,18 +22,23 @@ type GoogleUser struct {
 	Picture string `json:"picture"`
 }
 
-// Service encapsulates OAuth2 configuration and redirection settings.
+// Service encapsulates OAuth2 configuration and redirection settings used by
+// GAuss. It generates the authorization URL, validates callbacks and provides
+// helper methods for retrieving the authenticated user's profile.
+//
 // The LoginTemplate field, if non-empty, specifies the HTML template filename
-// to be used for login instead of the default "login.html".
+// to be used for the login page instead of the embedded "login.html".
 type Service struct {
 	config           *oauth2.Config
 	localRedirectURL string
 	LoginTemplate    string
 }
 
-// NewService initializes a new Service instance.
-// The customLoginTemplate parameter is the filename (e.g. "custom_login.html") to be used for the login page.
-// Pass an empty string to use the default template.
+// NewService initializes a Service with Google OAuth credentials and the local
+// redirect URL where authenticated users will be sent after logging in.
+// googleOAuthBase should point to the publicly reachable URL of your GAuss
+// application (e.g. "http://localhost:8080"). customLoginTemplate may specify
+// a login template file to override the default.
 func NewService(clientID string, clientSecret string, googleOAuthBase string, localRedirectURL string, customLoginTemplate string) (*Service, error) {
 	if clientID == "" || clientSecret == "" {
 		return nil, errors.New("missing Google OAuth credentials")
@@ -59,7 +64,8 @@ func NewService(clientID string, clientSecret string, googleOAuthBase string, lo
 	}, nil
 }
 
-// GenerateState creates a new random state string.
+// GenerateState returns a cryptographically secure random string that is used
+// as the OAuth2 state parameter to protect against cross-site request forgery.
 func (serviceInstance *Service) GenerateState() (string, error) {
 	randomBytes := make([]byte, 32)
 	_, readError := rand.Read(randomBytes)
@@ -69,7 +75,8 @@ func (serviceInstance *Service) GenerateState() (string, error) {
 	return base64.URLEncoding.EncodeToString(randomBytes), nil
 }
 
-// GetUser retrieves the Google user profile for the given OAuth2 token.
+// GetUser contacts Google's userinfo endpoint to retrieve the profile
+// associated with the provided OAuth2 token.
 func (serviceInstance *Service) GetUser(oauthToken *oauth2.Token) (*GoogleUser, error) {
 	httpClient := serviceInstance.config.Client(context.Background(), oauthToken)
 	httpResponse, httpError := httpClient.Get("https://www.googleapis.com/oauth2/v2/userinfo")
