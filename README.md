@@ -1,6 +1,6 @@
 # GAuss
 
-GAuss is a Google OAuth2 authentication service written in Go. It provides a simple, secure way to authenticate users with Google, store their session data, and optionally use a custom login template.
+GAuss is a Google OAuth2 authentication package written in Go. It is designed to be embedded into your own projects so that you can easily authenticate users with Google and manage their sessions. A small demo application is provided under `cmd/web` to illustrate how the package can be integrated.
 
 ---
 
@@ -39,32 +39,33 @@ GOOGLE_CLIENT_SECRET="your-google-client-secret"
 SESSION_SECRET="random-secret"
 ```
 
-### Build and Run
+### Run the Demo
+
+This repository is not a standalone CLI tool. The code under `pkg/` is meant to
+be imported into your own applications. However a small demonstration app lives
+in `cmd/web` if you want to see GAuss in action.
 
 1. **Clone** the repository or place the files in your Go workspace.
 2. **Install** dependencies:
    ```bash
    go mod tidy
    ```
-3. **Build** the binary:
+3. **Run** the demo application:
    ```bash
-   go build -o gauss cmd/web/main.go
-   ```
-4. **Run** the binary:
-   ```bash
-   ./gauss
+   go run cmd/web/main.go
    ```
 
-GAuss will start listening on port `:8080`.
+The demo listens on `http://localhost:8080`.
 
 ---
 
 ## Custom Login Template
 
-You can override the default embedded `login.html` by passing the `--template` flag at runtime:
+You can override the default embedded `login.html` in the demo by passing the
+`--template` flag:
 
 ```bash
-./gauss --template="/path/to/your/custom_login.html"
+go run cmd/web/main.go --template="/path/to/your/custom_login.html"
 ```
 
 - If the flag is **not** provided, GAuss uses its default embedded `login.html`.
@@ -73,7 +74,7 @@ You can override the default embedded `login.html` by passing the `--template` f
 ### Example
 
 ```bash
-./gauss --template="templates/custom_login.html"
+go run cmd/web/main.go --template="templates/custom_login.html"
 ```
 
 Ensure that your custom file exists and is accessible. Otherwise, you’ll get an error like `template: pattern matches no files`.
@@ -82,24 +83,15 @@ Ensure that your custom file exists and is accessible. Otherwise, you’ll get a
 
 ## Usage
 
-1. **Set Environment Variables**: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `SESSION_SECRET`.
-2. **Run GAuss** (default):
-   ```bash
-   go run cmd/web/main.go
-   ```
-   or
-   ```bash
-   go build -o gauss cmd/web/main.go
-   ./gauss
-   ```
-3. **Optional**: Pass a custom template, e.g.:
-   ```bash
-   ./gauss --template="templates/custom_login.html"
-   ```
-4. **Navigate** to [http://localhost:8080/](http://localhost:8080/) in your browser.
-    - You will be redirected to the `/login` route if not logged in.
-    - Clicking **Sign In with Google** starts the OAuth2 flow.
-    - On success, you’ll land on the **Dashboard** (`/dashboard`).
+GAuss exposes packages under `pkg/` that you embed in your own Go programs. After setting the environment variables `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` and `SESSION_SECRET`, create a `gauss.Service`, register its handlers with your `http.ServeMux` and wrap protected routes with `gauss.AuthMiddleware`.
+
+To see a working example, run the demo from `cmd/web`:
+
+```bash
+go run cmd/web/main.go
+```
+
+Open [http://localhost:8080/](http://localhost:8080/) and authenticate with Google. The demo demonstrates how to mount the package’s handlers and how to serve a simple dashboard once the user is logged in.
 
 ---
 
