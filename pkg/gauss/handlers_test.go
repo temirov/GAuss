@@ -15,7 +15,7 @@ import (
 // helper to create service and handlers for tests
 func newTestHandlers(t *testing.T) *Handlers {
 	session.NewSession([]byte("secret"))
-	svc, err := NewService("id", "secret", "http://localhost:8080", "/dashboard", "")
+	svc, err := NewService("id", "secret", "http://localhost:8080", "/dashboard", ScopeStrings(DefaultScopes), "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,5 +100,8 @@ func TestCallbackSuccess(t *testing.T) {
 	sess2, _ := session.Store().Get(chkReq, constants.SessionName)
 	if sess2.Values[constants.SessionKeyUserEmail] != "e@example.com" {
 		t.Fatalf("user not stored in session")
+	}
+	if sess2.Values[constants.SessionKeyOAuthToken] == nil {
+		t.Fatalf("oauth token not stored")
 	}
 }

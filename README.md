@@ -85,6 +85,15 @@ Ensure that your custom file exists and is accessible. Otherwise, you’ll get a
 
 GAuss exposes packages under `pkg/` that you embed in your own Go programs. After setting the environment variables `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` and `SESSION_SECRET`, create a `gauss.Service`, register its handlers with your `http.ServeMux` and wrap protected routes with `gauss.AuthMiddleware`.
 
+`NewService` now accepts the Google OAuth scopes you want to request. GAuss provides a set of scope constants and a helper to convert them to strings:
+
+```go
+scopes := gauss.ScopeStrings([]gauss.Scope{gauss.ScopeProfile, gauss.ScopeEmail, gauss.ScopeYouTubeReadonly})
+svc, err := gauss.NewService(clientID, clientSecret, baseURL, "/dashboard", scopes, "")
+```
+
+If the slice is empty, GAuss defaults to `profile` and `email`.
+
 To see a working example, run the demo from `cmd/web`:
 
 ```bash
@@ -102,6 +111,18 @@ Open [http://localhost:8080/](http://localhost:8080/) and authenticate with Goog
 - **`/auth/google/callback`** – Google redirects here with an authorization code.
 - **`/logout`** – Logs out the user by clearing session data.
 - **`/dashboard`** – Protected route showing user info.
+
+### Persisting OAuth Tokens
+
+After a successful login the raw OAuth2 token is stored in the session under the key `gauss.SessionKeyOAuthToken`. You can extract and persist it for use outside the web session:
+
+```go
+sess, _ := session.Store().Get(r, constants.SessionName)
+tokJSON, _ := sess.Values[constants.SessionKeyOAuthToken].(string)
+var tok oauth2.Token
+json.Unmarshal([]byte(tokJSON), &tok)
+// save `tok` to your database
+```
 
 ---
 

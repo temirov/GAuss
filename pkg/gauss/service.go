@@ -44,7 +44,7 @@ type Service struct {
 // googleOAuthBase should point to the publicly reachable URL of your GAuss
 // application (e.g. "http://localhost:8080"). customLoginTemplate may specify
 // a login template file to override the default.
-func NewService(clientID string, clientSecret string, googleOAuthBase string, localRedirectURL string, customLoginTemplate string) (*Service, error) {
+func NewService(clientID string, clientSecret string, googleOAuthBase string, localRedirectURL string, scopes []string, customLoginTemplate string) (*Service, error) {
 	if clientID == "" || clientSecret == "" {
 		return nil, errors.New("missing Google OAuth credentials")
 	}
@@ -56,12 +56,16 @@ func NewService(clientID string, clientSecret string, googleOAuthBase string, lo
 	relativePath, _ := url.Parse(constants.CallbackPath)
 	redirectURL := baseURL.ResolveReference(relativePath)
 
+	if len(scopes) == 0 {
+		scopes = ScopeStrings(DefaultScopes)
+	}
+
 	return &Service{
 		config: &oauth2.Config{
 			RedirectURL:  redirectURL.String(),
 			ClientID:     clientID,
 			ClientSecret: clientSecret,
-			Scopes:       []string{"profile", "email"},
+			Scopes:       scopes,
 			Endpoint:     google.Endpoint,
 		},
 		localRedirectURL: localRedirectURL,

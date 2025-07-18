@@ -32,7 +32,7 @@ func main() {
 
 	customLoginTemplate := *loginTemplateFlag
 
-	authService, err := gauss.NewService(googleClientID, googleClientSecret, appBase, DashboardPath, customLoginTemplate)
+	authService, err := gauss.NewService(googleClientID, googleClientSecret, appBase, DashboardPath, gauss.ScopeStrings(gauss.DefaultScopes), customLoginTemplate)
 	if err != nil {
 		log.Fatalf("Failed to initialize auth service: %v", err)
 	}

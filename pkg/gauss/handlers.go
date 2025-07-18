@@ -2,6 +2,7 @@ package gauss
 
 import (
 	"embed"
+	"encoding/json"
 	"html/template"
 	"log"
 	"net/http"
@@ -155,6 +156,11 @@ func (handlersInstance *Handlers) Callback(responseWriter http.ResponseWriter, r
 	webSession.Values[constants.SessionKeyUserEmail] = googleUser.Email
 	webSession.Values[constants.SessionKeyUserName] = googleUser.Name
 	webSession.Values[constants.SessionKeyUserPicture] = googleUser.Picture
+	if tokenBytes, err := json.Marshal(oauthToken); err == nil {
+		webSession.Values[constants.SessionKeyOAuthToken] = string(tokenBytes)
+	} else {
+		log.Printf("Failed to marshal token: %v", err)
+	}
 	if sessionSaveError := webSession.Save(request, responseWriter); sessionSaveError != nil {
 		log.Printf("Failed to save user session: %v", sessionSaveError)
 		http.Redirect(responseWriter, request, constants.LoginPath+"?error=session_save_failed", http.StatusFound)

@@ -10,7 +10,7 @@ import (
 )
 
 func TestGenerateStateUnique(t *testing.T) {
-	svc, err := NewService("id", "secret", "http://example.com", "/dash", "")
+	svc, err := NewService("id", "secret", "http://example.com", "/dash", ScopeStrings(DefaultScopes), "")
 	if err != nil {
 		t.Fatalf("NewService error: %v", err)
 	}
@@ -42,7 +42,7 @@ func TestGetUser(t *testing.T) {
 	userInfoEndpoint = server.URL
 	defer func() { userInfoEndpoint = orig }()
 
-	svc, err := NewService("id", "secret", "http://example.com", "/dash", "")
+	svc, err := NewService("id", "secret", "http://example.com", "/dash", ScopeStrings(DefaultScopes), "")
 	if err != nil {
 		t.Fatalf("NewService error: %v", err)
 	}
