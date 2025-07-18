@@ -22,6 +22,8 @@ const (
 	SessionKeyUserName = "user_name"
 	// SessionKeyUserPicture stores the profile image URL.
 	SessionKeyUserPicture = "user_picture"
+	// SessionKeyOAuthToken stores the OAuth2 token JSON string.
+	SessionKeyOAuthToken = "oauth_token"
 
 	// SessionName is the cookie name used for sessions.
 	SessionName = "gauss_session"
