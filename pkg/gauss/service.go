@@ -15,6 +15,11 @@ import (
 	"golang.org/x/oauth2/google"
 )
 
+// userInfoEndpoint specifies the URL used to retrieve profile information from
+// Google. It is a variable rather than a constant so tests can replace it with
+// a mock server endpoint.
+var userInfoEndpoint = "https://www.googleapis.com/oauth2/v2/userinfo"
+
 // GoogleUser represents a user profile retrieved from Google.
 type GoogleUser struct {
 	Email   string `json:"email"`
@@ -79,7 +84,7 @@ func (serviceInstance *Service) GenerateState() (string, error) {
 // associated with the provided OAuth2 token.
 func (serviceInstance *Service) GetUser(oauthToken *oauth2.Token) (*GoogleUser, error) {
 	httpClient := serviceInstance.config.Client(context.Background(), oauthToken)
-	httpResponse, httpError := httpClient.Get("https://www.googleapis.com/oauth2/v2/userinfo")
+	httpResponse, httpError := httpClient.Get(userInfoEndpoint)
 	if httpError != nil {
 		return nil, fmt.Errorf("failed to get user info: %w", httpError)
 	}
