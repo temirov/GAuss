@@ -105,3 +105,9 @@ func (serviceInstance *Service) GetUser(oauthToken *oauth2.Token) (*GoogleUser, 
 
 	return &user, nil
 }
+
+// GetClient creates an authenticated http.Client using the service's OAuth2
+// configuration and the provided token.
+func (serviceInstance *Service) GetClient(ctx context.Context, token *oauth2.Token) *http.Client {
+	return serviceInstance.config.Client(ctx, token)
+}

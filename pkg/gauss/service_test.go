@@ -1,6 +1,7 @@
 package gauss
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -53,5 +54,32 @@ func TestGetUser(t *testing.T) {
 	}
 	if user.Email != "e@example.com" || user.Name != "tester" {
 		t.Fatalf("unexpected user: %+v", user)
+	}
+}
+
+func TestGetClient(t *testing.T) {
+	// 1. Create a new service
+	svc, err := NewService("id", "secret", "http://example.com", "/dash", nil, "")
+	if err != nil {
+		t.Fatalf("NewService error: %v", err)
+	}
+
+	// 2. Create a dummy token
+	tok := &oauth2.Token{
+		AccessToken: "test-access-token",
+	}
+
+	// 3. Get the client from the service
+	client := svc.GetClient(context.Background(), tok)
+
+	// 4. Verify the client is not nil
+	if client == nil {
+		t.Fatal("GetClient returned a nil client")
+	}
+
+	// 5. (Advanced) Verify the transport is an oauth2.Transport
+	// This confirms the client is correctly configured for OAuth2.
+	if _, ok := client.Transport.(*oauth2.Transport); !ok {
+		t.Errorf("Expected client.Transport to be of type *oauth2.Transport, but got %T", client.Transport)
 	}
 }

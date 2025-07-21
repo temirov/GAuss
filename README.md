@@ -1,6 +1,8 @@
 # GAuss
 
-GAuss is a Google OAuth2 authentication package written in Go. It is designed to be embedded into your own projects so that you can easily authenticate users with Google and manage their sessions. A small demo application is provided under `cmd/web` to illustrate how the package can be integrated.
+GAuss is a Google OAuth2 authentication package written in Go. It is designed to be embedded into your own projects so
+that you can easily authenticate users with Google and manage their sessions. A small demo application is provided under
+`cmd/web` to illustrate how the package can be integrated.
 
 ---
 
@@ -19,8 +21,8 @@ GAuss is a Google OAuth2 authentication package written in Go. It is designed to
 
 1. **Go** (version 1.23.4 or later recommended).
 2. A **Google Cloud** project with OAuth credentials:
-   - Client ID
-   - Client Secret
+    - Client ID
+    - Client Secret
 3. A **session secret** (any random string or generated key).
 
 ### Environment Variables
@@ -77,15 +79,19 @@ go run cmd/web/main.go --template="/path/to/your/custom_login.html"
 go run cmd/web/main.go --template="templates/custom_login.html"
 ```
 
-Ensure that your custom file exists and is accessible. Otherwise, you’ll get an error like `template: pattern matches no files`.
+Ensure that your custom file exists and is accessible. Otherwise, you’ll get an error like
+`template: pattern matches no files`.
 
 ---
 
 ## Usage
 
-GAuss exposes packages under `pkg/` that you embed in your own Go programs. After setting the environment variables `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` and `SESSION_SECRET`, create a `gauss.Service`, register its handlers with your `http.ServeMux` and wrap protected routes with `gauss.AuthMiddleware`.
+GAuss exposes packages under `pkg/` that you embed in your own Go programs. After setting the environment variables
+`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` and `SESSION_SECRET`, create a `gauss.Service`, register its handlers with
+your `http.ServeMux` and wrap protected routes with `gauss.AuthMiddleware`.
 
-`NewService` now accepts the Google OAuth scopes you want to request. GAuss provides a set of scope constants and a helper to convert them to strings:
+`NewService` now accepts the Google OAuth scopes you want to request. GAuss provides a set of scope constants and a
+helper to convert them to strings:
 
 ```go
 scopes := gauss.ScopeStrings([]gauss.Scope{gauss.ScopeProfile, gauss.ScopeEmail, gauss.ScopeYouTubeReadonly})
@@ -100,7 +106,8 @@ To see a working example, run the demo from `cmd/web`:
 go run cmd/web/main.go
 ```
 
-Open [http://localhost:8080/](http://localhost:8080/) and authenticate with Google. The demo demonstrates how to mount the package’s handlers and how to serve a simple dashboard once the user is logged in.
+Open [http://localhost:8080/](http://localhost:8080/) and authenticate with Google. The demo demonstrates how to mount
+the package’s handlers and how to serve a simple dashboard once the user is logged in.
 
 ---
 
@@ -114,7 +121,8 @@ Open [http://localhost:8080/](http://localhost:8080/) and authenticate with Goog
 
 ### Persisting OAuth Tokens
 
-After a successful login the raw OAuth2 token is stored in the session under the key `gauss.SessionKeyOAuthToken`. You can extract and persist it for use outside the web session:
+After a successful login the raw OAuth2 token is stored in the session under the key `gauss.SessionKeyOAuthToken`. You
+can extract and persist it for use outside the web session:
 
 ```go
 sess, _ := session.Store().Get(r, constants.SessionName)
@@ -123,6 +131,51 @@ var tok oauth2.Token
 json.Unmarshal([]byte(tokJSON), &tok)
 // save `tok` to your database
 ```
+
+### Making Authenticated API Calls
+
+The primary purpose of authenticating a user is to make API calls on their behalf. After retrieving the oauth2.Token
+from the session, use the gauss.Service.GetClient method to create an *http.Client that is correctly configured to use
+that token.
+
+This authenticated client can then be passed to a Google API client library, such as the YouTube or Google Drive SDK.
+
+#### Example:
+
+```go
+// Assume 'gaussSvc' is your initialized gauss.Service instance
+// and 'r' is your http.Request.
+
+// 1. Get the token from the session
+sess, _ := session.Store().Get(r, constants.SessionName)
+tokJSON, ok := sess.Values[constants.SessionKeyOAuthToken].(string)
+if !ok {
+// Handle error: user not logged in or token is missing
+return
+}
+var token oauth2.Token
+if err := json.Unmarshal([]byte(tokJSON), &token); err != nil {
+// Handle JSON parsing error
+return
+}
+
+// 2. Use the GAuss service to get an authenticated client
+httpClient := gaussSvc.GetClient(r.Context(), &token)
+
+// 3. Pass the client to a Google API library
+youtubeService, err := youtube.NewService(r.Context(), option.WithHTTPClient(httpClient))
+if err != nil {
+// Handle YouTube service creation error
+return
+}
+
+// 4. Use the service to make authenticated calls
+channels, err := youtubeService.Channels.List([]string{"snippet"}).Mine(true).Do()
+// ...
+```
+
+This approach ensures that the same OAuth2 configuration that initiated the login is used for all subsequent API calls,
+preventing invalid_grant errors.
 
 ---
 
@@ -139,7 +192,8 @@ json.Unmarshal([]byte(tokJSON), &tok)
 
 ## License
 
-This project does not specify a license by default. Add a LICENSE file if you plan to distribute or use this in production.
+This project does not specify a license by default. Add a LICENSE file if you plan to distribute or use this in
+production.
 
 ---
 
