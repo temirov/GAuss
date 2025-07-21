@@ -146,16 +146,34 @@ func (handlersInstance *Handlers) Callback(responseWriter http.ResponseWriter, r
 		return
 	}
 
-	googleUser, getUserError := handlersInstance.service.GetUser(oauthToken)
-	if getUserError != nil {
-		log.Printf("Failed to get user info: %v", getUserError)
-		http.Redirect(responseWriter, request, constants.LoginPath+"?error=user_info_failed", http.StatusFound)
-		return
+	// Dynamically check if the scopes in the service's config allow for fetching user info.
+	hasProfileScope := false
+	for _, scope := range handlersInstance.service.config.Scopes {
+		if scope == string(ScopeProfile) || scope == string(ScopeEmail) {
+			hasProfileScope = true
+			break
+		}
 	}
 
-	webSession.Values[constants.SessionKeyUserEmail] = googleUser.Email
-	webSession.Values[constants.SessionKeyUserName] = googleUser.Name
-	webSession.Values[constants.SessionKeyUserPicture] = googleUser.Picture
+	if hasProfileScope {
+		// If profile scopes were requested, fetch user info as before.
+		googleUser, getUserError := handlersInstance.service.GetUser(oauthToken)
+		if getUserError != nil {
+			log.Printf("Failed to get user info: %v", getUserError)
+			http.Redirect(responseWriter, request, constants.LoginPath+"?error=user_info_failed", http.StatusFound)
+			return
+		}
+		webSession.Values[constants.SessionKeyUserEmail] = googleUser.Email
+		webSession.Values[constants.SessionKeyUserName] = googleUser.Name
+		webSession.Values[constants.SessionKeyUserPicture] = googleUser.Picture
+	} else {
+		// If no profile scopes were requested, the user is still authenticated for API access.
+		// We set a generic, non-nil value in the session key that the AuthMiddleware checks.
+		// This confirms a valid session exists without needing the user's actual email.
+		webSession.Values[constants.SessionKeyUserEmail] = "authenticated_api_user"
+	}
+
+	// ALWAYS store the OAuth token, as this is the primary artifact for API-driven apps.
 	if tokenBytes, err := json.Marshal(oauthToken); err == nil {
 		webSession.Values[constants.SessionKeyOAuthToken] = string(tokenBytes)
 	} else {
