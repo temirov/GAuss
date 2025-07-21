@@ -25,6 +25,16 @@ that you can easily authenticate users with Google and manage their sessions. A 
     - Client Secret
 3. A **session secret** (any random string or generated key).
 
+### Configuring Google Cloud Console
+
+1. Open [Google Cloud Console](https://console.cloud.google.com/) and select or create a project.
+2. Navigate to **APIs & Services → Credentials** and click **Create credentials → OAuth client ID**.
+3. Choose **Web application**.
+4. Add `http://localhost:8080` under **Authorized JavaScript origins**.
+5. Add `http://localhost:8080/auth/google/callback` under **Authorized redirect URIs**.
+6. Save to obtain your **Client ID** and **Client Secret**. These values will be placed in your `.env` file.
+7. If you plan to run the YouTube listing demo, enable the **YouTube Data API v3** for your project.
+
 ### Environment Variables
 
 Set the following environment variables before running GAuss:
@@ -39,6 +49,8 @@ For example, you might place them in an `.env` file (excluded from version contr
 GOOGLE_CLIENT_ID="your-client-id.apps.googleusercontent.com"
 GOOGLE_CLIENT_SECRET="your-google-client-secret"
 SESSION_SECRET="random-secret"
+# Callback URL configured in Google Cloud Console
+# http://localhost:8080/auth/google/callback
 ```
 
 ### Run the Demo
