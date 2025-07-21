@@ -4,15 +4,16 @@ import (
 	"encoding/json"
 	"flag"
 	"html/template"
-	"log"
 	"net/http"
-	"os"
+	"strings"
 	"time"
 
 	"github.com/temirov/GAuss/pkg/constants"
 	"github.com/temirov/GAuss/pkg/gauss"
 	"github.com/temirov/GAuss/pkg/session"
 	"github.com/temirov/utils/system"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"golang.org/x/oauth2"
 	"google.golang.org/api/option"
 	"google.golang.org/api/youtube/v3"
@@ -24,35 +25,25 @@ const (
 	appBase       = "http://localhost:8080/"
 )
 
-// Logger wraps standard logger with structured logging
-type Logger struct {
-	*log.Logger
-}
+var logger *zap.Logger
 
-func NewLogger() *Logger {
-	return &Logger{
-		Logger: log.New(os.Stdout, "", log.LstdFlags|log.Lshortfile),
+func initLogger() {
+	config := zap.NewDevelopmentConfig()
+	config.Level = zap.NewAtomicLevelAt(zapcore.DebugLevel)
+	config.EncoderConfig.TimeKey = "timestamp"
+	config.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+
+	var err error
+	logger, err = config.Build()
+	if err != nil {
+		panic(err)
 	}
 }
 
-func (l *Logger) Error(msg string, err error, fields ...interface{}) {
-	args := append([]interface{}{"ERROR", msg, "error", err}, fields...)
-	l.Println(args...)
-}
-
-func (l *Logger) Info(msg string, fields ...interface{}) {
-	args := append([]interface{}{"INFO", msg}, fields...)
-	l.Println(args...)
-}
-
-func (l *Logger) Debug(msg string, fields ...interface{}) {
-	args := append([]interface{}{"DEBUG", msg}, fields...)
-	l.Println(args...)
-}
-
-var logger = NewLogger()
-
 func main() {
+	initLogger()
+	defer logger.Sync()
+
 	loginTemplateFlag := flag.String("template", "", "Path to custom login template (empty for default)")
 	flag.Parse()
 
@@ -65,14 +56,12 @@ func main() {
 	scopes := gauss.ScopeStrings([]gauss.Scope{gauss.ScopeProfile, gauss.ScopeEmail, gauss.ScopeYouTubeReadonly})
 	authService, err := gauss.NewService(googleClientID, googleClientSecret, appBase, DashboardPath, scopes, *loginTemplateFlag)
 	if err != nil {
-		logger.Error("Failed to initialize auth service", err)
-		os.Exit(1)
+		logger.Fatal("Failed to initialize auth service", zap.Error(err))
 	}
 
 	authHandlers, err := gauss.NewHandlers(authService)
 	if err != nil {
-		logger.Error("Failed to initialize handlers", err)
-		os.Exit(1)
+		logger.Fatal("Failed to initialize handlers", zap.Error(err))
 	}
 
 	mux := http.NewServeMux()
@@ -80,72 +69,94 @@ func main() {
 
 	templates, err := template.ParseGlob("examples/youtube_listing/templates/*.html")
 	if err != nil {
-		logger.Error("Failed to parse templates", err)
-		os.Exit(1)
+		logger.Fatal("Failed to parse templates", zap.Error(err))
 	}
 
-	mux.Handle(DashboardPath, gauss.AuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	mux.Handle(DashboardPath, requestLogger(gauss.AuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		renderYouTube(w, r, authService, templates)
-	})))
+	}))))
 
 	mux.Handle(Root, gauss.AuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, DashboardPath, http.StatusFound)
 	})))
 
-	logger.Info("Server starting", "port", "8080")
-	if err := http.ListenAndServe("localhost:8080", mux); err != nil {
-		logger.Error("Server failed to start", err)
-		os.Exit(1)
-	}
+	logger.Info("Server starting", zap.String("port", "8080"))
+	logger.Fatal("Server failed", zap.Error(http.ListenAndServe("localhost:8080", mux)))
+}
+
+func requestLogger(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+
+		logger.Info("Request started",
+			zap.String("method", r.Method),
+			zap.String("path", r.URL.Path),
+			zap.String("user_agent", r.UserAgent()),
+			zap.String("remote_addr", r.RemoteAddr),
+		)
+
+		next.ServeHTTP(w, r)
+
+		logger.Info("Request completed",
+			zap.String("path", r.URL.Path),
+			zap.Duration("duration", time.Since(start)),
+		)
+	})
 }
 
 func renderYouTube(w http.ResponseWriter, r *http.Request, svc *gauss.Service, t *template.Template) {
+	logger.Info("YouTube render started", zap.String("user_agent", r.UserAgent()))
+
 	sess, err := session.Store().Get(r, constants.SessionName)
 	if err != nil {
-		logger.Error("Failed to get session", err, "remote_addr", r.RemoteAddr)
+		logger.Error("Session get failed", zap.Error(err))
 		http.Error(w, "Session error", http.StatusInternalServerError)
 		return
 	}
 
 	tokJSON, ok := sess.Values[constants.SessionKeyOAuthToken].(string)
 	if !ok {
-		logger.Error("Missing OAuth token in session", nil, "remote_addr", r.RemoteAddr, "session_id", sess.ID)
+		logger.Error("OAuth token missing from session", zap.String("session_id", sess.ID))
 		http.Error(w, "Authentication required", http.StatusUnauthorized)
 		return
 	}
 
 	var token oauth2.Token
 	if err := json.Unmarshal([]byte(tokJSON), &token); err != nil {
-		logger.Error("Failed to unmarshal OAuth token", err, "remote_addr", r.RemoteAddr, "token_length", len(tokJSON))
+		logger.Error("Token unmarshal failed", zap.Error(err))
 		http.Error(w, "Invalid authentication token", http.StatusInternalServerError)
 		return
 	}
 
-	// Validate token before using it
+	logger.Debug("Token details",
+		zap.Bool("has_access_token", token.AccessToken != ""),
+		zap.Bool("has_refresh_token", token.RefreshToken != ""),
+		zap.Bool("is_expired", token.Expiry.Before(time.Now())),
+	)
+
 	if token.AccessToken == "" {
-		logger.Error("Empty access token", nil, "remote_addr", r.RemoteAddr, "token_type", token.TokenType)
+		logger.Error("Empty access token")
 		http.Error(w, "Invalid access token", http.StatusUnauthorized)
 		return
 	}
 
-	logger.Debug("Creating YouTube service", "remote_addr", r.RemoteAddr, "token_type", token.TokenType, "has_refresh_token", token.RefreshToken != "")
-
 	httpClient := svc.GetClient(r.Context(), &token)
 	ytService, err := youtube.NewService(r.Context(), option.WithHTTPClient(httpClient))
 	if err != nil {
-		logger.Error("Failed to create YouTube service", err, "remote_addr", r.RemoteAddr)
+		logger.Error("YouTube service creation failed", zap.Error(err))
 		http.Error(w, "YouTube service unavailable", http.StatusInternalServerError)
 		return
 	}
 
-	logger.Debug("Fetching YouTube channels", "remote_addr", r.RemoteAddr)
 	channels, err := ytService.Channels.List([]string{"contentDetails"}).Mine(true).Do()
 	if err != nil {
-		logger.Error("Failed to fetch YouTube channels", err, "remote_addr", r.RemoteAddr, "token_expired", token.Expiry.Before(time.Now()))
+		logger.Error("YouTube channels fetch failed",
+			zap.Error(err),
+			zap.Bool("is_oauth_error", isOAuthError(err)),
+		)
 
-		// Check if it's a token expiry issue
-		if token.RefreshToken == "" {
-			logger.Error("No refresh token available for expired token", nil, "remote_addr", r.RemoteAddr)
+		if isOAuthError(err) {
+			logger.Info("OAuth error detected, redirecting to logout")
 			http.Redirect(w, r, "/logout", http.StatusFound)
 			return
 		}
@@ -155,26 +166,35 @@ func renderYouTube(w http.ResponseWriter, r *http.Request, svc *gauss.Service, t
 	}
 
 	if len(channels.Items) == 0 {
-		logger.Info("No YouTube channels found for user", "remote_addr", r.RemoteAddr)
+		logger.Info("No YouTube channels found")
 		http.Error(w, "No YouTube channel found", http.StatusNotFound)
 		return
 	}
 
 	uploads := channels.Items[0].ContentDetails.RelatedPlaylists.Uploads
-	logger.Debug("Fetching playlist items", "remote_addr", r.RemoteAddr, "uploads_playlist", uploads)
-
 	vids, err := ytService.PlaylistItems.List([]string{"snippet"}).PlaylistId(uploads).MaxResults(10).Do()
 	if err != nil {
-		logger.Error("Failed to fetch playlist items", err, "remote_addr", r.RemoteAddr, "playlist_id", uploads)
+		logger.Error("Playlist items fetch failed", zap.Error(err))
 		http.Error(w, "Failed to load videos", http.StatusInternalServerError)
 		return
 	}
 
-	logger.Info("Successfully loaded YouTube videos", "remote_addr", r.RemoteAddr, "video_count", len(vids.Items))
+	logger.Info("YouTube videos loaded successfully", zap.Int("count", len(vids.Items)))
 
 	if err := t.ExecuteTemplate(w, "youtube_videos.html", vids.Items); err != nil {
-		logger.Error("Failed to execute template", err, "remote_addr", r.RemoteAddr)
+		logger.Error("Template execution failed", zap.Error(err))
 		http.Error(w, "Template error", http.StatusInternalServerError)
 		return
 	}
+}
+
+func isOAuthError(err error) bool {
+	if err == nil {
+		return false
+	}
+	errStr := strings.ToLower(err.Error())
+	return strings.Contains(errStr, "invalid_grant") ||
+		strings.Contains(errStr, "unauthorized") ||
+		strings.Contains(errStr, "access_denied") ||
+		strings.Contains(errStr, "invalid_token")
 }
