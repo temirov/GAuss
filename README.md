@@ -169,13 +169,13 @@ This authenticated client can then be passed to a Google API client library, suc
 sess, _ := session.Store().Get(r, constants.SessionName)
 tokJSON, ok := sess.Values[constants.SessionKeyOAuthToken].(string)
 if !ok {
-// Handle error: user not logged in or token is missing
-return
+   // Handle error: user not logged in or token is missing
+   return
 }
 var token oauth2.Token
 if err := json.Unmarshal([]byte(tokJSON), &token); err != nil {
-// Handle JSON parsing error
-return
+   // Handle JSON parsing error
+   return
 }
 
 // 2. Use the GAuss service to get an authenticated client
@@ -184,8 +184,8 @@ httpClient := gaussSvc.GetClient(r.Context(), &token)
 // 3. Pass the client to a Google API library
 youtubeService, err := youtube.NewService(r.Context(), option.WithHTTPClient(httpClient))
 if err != nil {
-// Handle YouTube service creation error
-return
+   // Handle YouTube service creation error
+   return
 }
 
 // 4. Use the service to make authenticated calls
@@ -211,8 +211,8 @@ preventing invalid_grant errors.
 
 ## License
 
-This project does not specify a license by default. Add a LICENSE file if you plan to distribute or use this in
-production.
+GAuss project is licensed under the MIT License. See [LICENSE](MIT-LICENSE) for
+details.
 
 ---
 
