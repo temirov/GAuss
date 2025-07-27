@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"flag"
 	"html/template"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -12,8 +13,6 @@ import (
 	"github.com/temirov/GAuss/pkg/gauss"
 	"github.com/temirov/GAuss/pkg/session"
 	"github.com/temirov/utils/system"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 	"golang.org/x/oauth2"
 	"google.golang.org/api/option"
 	"google.golang.org/api/youtube/v3"
@@ -25,25 +24,7 @@ const (
 	appBase       = "http://localhost:8080/"
 )
 
-var logger *zap.Logger
-
-func initLogger() {
-	config := zap.NewDevelopmentConfig()
-	config.Level = zap.NewAtomicLevelAt(zapcore.DebugLevel)
-	config.EncoderConfig.TimeKey = "timestamp"
-	config.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
-
-	var err error
-	logger, err = config.Build()
-	if err != nil {
-		panic(err)
-	}
-}
-
 func main() {
-	initLogger()
-	defer logger.Sync()
-
 	loginTemplateFlag := flag.String("template", "", "Path to custom login template (empty for default)")
 	flag.Parse()
 
@@ -56,12 +37,12 @@ func main() {
 	scopes := gauss.ScopeStrings([]gauss.Scope{gauss.ScopeProfile, gauss.ScopeEmail, gauss.ScopeYouTubeReadonly})
 	authService, err := gauss.NewService(googleClientID, googleClientSecret, appBase, DashboardPath, scopes, *loginTemplateFlag)
 	if err != nil {
-		logger.Fatal("Failed to initialize auth service", zap.Error(err))
+		log.Fatalf("Failed to initialize auth service: %v", err)
 	}
 
 	authHandlers, err := gauss.NewHandlers(authService)
 	if err != nil {
-		logger.Fatal("Failed to initialize handlers", zap.Error(err))
+		log.Fatalf("Failed to initialize handlers: %v", err)
 	}
 
 	mux := http.NewServeMux()
@@ -69,7 +50,7 @@ func main() {
 
 	templates, err := template.ParseGlob("examples/youtube_listing/templates/*.html")
 	if err != nil {
-		logger.Fatal("Failed to parse templates", zap.Error(err))
+		log.Fatalf("Failed to parse templates: %v", err)
 	}
 
 	mux.Handle(DashboardPath, requestLogger(gauss.AuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -80,62 +61,50 @@ func main() {
 		http.Redirect(w, r, DashboardPath, http.StatusFound)
 	})))
 
-	logger.Info("Server starting", zap.String("port", "8080"))
-	logger.Fatal("Server failed", zap.Error(http.ListenAndServe("localhost:8080", mux)))
+	log.Printf("Server starting on port %s", "8080")
+	if err := http.ListenAndServe("localhost:8080", mux); err != nil {
+		log.Fatalf("Server failed: %v", err)
+	}
 }
 
 func requestLogger(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
-
-		logger.Info("Request started",
-			zap.String("method", r.Method),
-			zap.String("path", r.URL.Path),
-			zap.String("user_agent", r.UserAgent()),
-			zap.String("remote_addr", r.RemoteAddr),
-		)
-
+		log.Printf("Request started: method=%s path=%s user_agent=%s remote_addr=%s", r.Method, r.URL.Path, r.UserAgent(), r.RemoteAddr)
 		next.ServeHTTP(w, r)
-
-		logger.Info("Request completed",
-			zap.String("path", r.URL.Path),
-			zap.Duration("duration", time.Since(start)),
-		)
+		log.Printf("Request completed: path=%s duration=%v", r.URL.Path, time.Since(start))
 	})
 }
 
-func renderYouTube(w http.ResponseWriter, r *http.Request, svc *gauss.Service, t *template.Template) {
-	logger.Info("YouTube render started", zap.String("user_agent", r.UserAgent()))
+func renderYouTube(w http.ResponseWriter, r *http.Request, svc *gauss.Service, tmpl *template.Template) {
+	log.Printf("YouTube render started: user_agent=%s", r.UserAgent())
 
 	sess, err := session.Store().Get(r, constants.SessionName)
 	if err != nil {
-		logger.Error("Session get failed", zap.Error(err))
+		log.Printf("Session get failed: %v", err)
 		http.Error(w, "Session error", http.StatusInternalServerError)
 		return
 	}
 
 	tokJSON, ok := sess.Values[constants.SessionKeyOAuthToken].(string)
 	if !ok {
-		logger.Error("OAuth token missing from session", zap.String("session_id", sess.ID))
+		log.Printf("OAuth token missing from session: session_id=%s", sess.ID)
 		http.Error(w, "Authentication required", http.StatusUnauthorized)
 		return
 	}
 
 	var token oauth2.Token
 	if err := json.Unmarshal([]byte(tokJSON), &token); err != nil {
-		logger.Error("Token unmarshal failed", zap.Error(err))
+		log.Printf("Token unmarshal failed: %v", err)
 		http.Error(w, "Invalid authentication token", http.StatusInternalServerError)
 		return
 	}
 
-	logger.Debug("Token details",
-		zap.Bool("has_access_token", token.AccessToken != ""),
-		zap.Bool("has_refresh_token", token.RefreshToken != ""),
-		zap.Bool("is_expired", token.Expiry.Before(time.Now())),
-	)
+	log.Printf("Token details: has_access_token=%v has_refresh_token=%v is_expired=%v",
+		token.AccessToken != "", token.RefreshToken != "", token.Expiry.Before(time.Now()))
 
 	if token.AccessToken == "" {
-		logger.Error("Empty access token")
+		log.Printf("Empty access token")
 		http.Error(w, "Invalid access token", http.StatusUnauthorized)
 		return
 	}
@@ -143,30 +112,25 @@ func renderYouTube(w http.ResponseWriter, r *http.Request, svc *gauss.Service, t
 	httpClient := svc.GetClient(r.Context(), &token)
 	ytService, err := youtube.NewService(r.Context(), option.WithHTTPClient(httpClient))
 	if err != nil {
-		logger.Error("YouTube service creation failed", zap.Error(err))
+		log.Printf("YouTube service creation failed: %v", err)
 		http.Error(w, "YouTube service unavailable", http.StatusInternalServerError)
 		return
 	}
 
 	channels, err := ytService.Channels.List([]string{"contentDetails"}).Mine(true).Do()
 	if err != nil {
-		logger.Error("YouTube channels fetch failed",
-			zap.Error(err),
-			zap.Bool("is_oauth_error", isOAuthError(err)),
-		)
-
+		log.Printf("YouTube channels fetch failed: %v is_oauth_error=%v", err, isOAuthError(err))
 		if isOAuthError(err) {
-			logger.Info("OAuth error detected, redirecting to logout")
+			log.Printf("OAuth error detected, redirecting to logout")
 			http.Redirect(w, r, "/logout", http.StatusFound)
 			return
 		}
-
 		http.Error(w, "Failed to access YouTube data", http.StatusInternalServerError)
 		return
 	}
 
 	if len(channels.Items) == 0 {
-		logger.Info("No YouTube channels found")
+		log.Printf("No YouTube channels found")
 		http.Error(w, "No YouTube channel found", http.StatusNotFound)
 		return
 	}
@@ -174,15 +138,15 @@ func renderYouTube(w http.ResponseWriter, r *http.Request, svc *gauss.Service, t
 	uploads := channels.Items[0].ContentDetails.RelatedPlaylists.Uploads
 	vids, err := ytService.PlaylistItems.List([]string{"snippet"}).PlaylistId(uploads).MaxResults(10).Do()
 	if err != nil {
-		logger.Error("Playlist items fetch failed", zap.Error(err))
+		log.Printf("Playlist items fetch failed: %v", err)
 		http.Error(w, "Failed to load videos", http.StatusInternalServerError)
 		return
 	}
 
-	logger.Info("YouTube videos loaded successfully", zap.Int("count", len(vids.Items)))
+	log.Printf("YouTube videos loaded successfully: count=%d", len(vids.Items))
 
-	if err := t.ExecuteTemplate(w, "youtube_videos.html", vids.Items); err != nil {
-		logger.Error("Template execution failed", zap.Error(err))
+	if err := tmpl.ExecuteTemplate(w, "youtube_videos.html", vids.Items); err != nil {
+		log.Printf("Template execution failed: %v", err)
 		http.Error(w, "Template error", http.StatusInternalServerError)
 		return
 	}
