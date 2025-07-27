@@ -2,12 +2,13 @@ package main
 
 import (
 	"flag"
+	"github.com/temirov/GAuss/examples/user_auth/pkg/dash"
 	"html/template"
 	"log"
 	"net/http"
+	"path/filepath"
 
 	"github.com/temirov/GAuss/pkg/constants"
-	"github.com/temirov/GAuss/pkg/dash"
 	"github.com/temirov/GAuss/pkg/gauss"
 	"github.com/temirov/GAuss/pkg/session"
 	"github.com/temirov/utils/system"
@@ -49,7 +50,8 @@ func main() {
 	authHandlers.RegisterRoutes(mux)
 
 	// Initialize dashboard service and handlers.
-	templates, err := template.ParseGlob("templates/*.html")
+	pattern := filepath.Join("examples", "user_auth", "templates", "*.html")
+	templates, err := template.ParseGlob(pattern)
 	if err != nil {
 		log.Fatal(err)
 	}

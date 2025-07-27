@@ -43,11 +43,10 @@ func TestLoginRedirect(t *testing.T) {
 }
 
 func TestCallbackSuccess(t *testing.T) {
-	// Mock OAuth2 token and userinfo endpoints
 	mux := http.NewServeMux()
 	mux.HandleFunc("/token", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		io.WriteString(w, `{"access_token":"abc","token_type":"bearer"}`)
+		io.WriteString(w, `{"access_token":"abc","token_type":"bearer","refresh_token":"rtok"}`)
 	})
 	mux.HandleFunc("/userinfo", func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]string{
@@ -111,7 +110,7 @@ func TestCallbackSuccess_APIOnlyScopes(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/token" {
 			w.Header().Set("Content-Type", "application/json")
-			io.WriteString(w, `{"access_token":"api_token","token_type":"bearer"}`)
+			io.WriteString(w, `{"access_token":"api_token","token_type":"bearer","refresh_token":"rtok"}`)
 		} else {
 			// If this test calls any other endpoint (like /userinfo), it's a failure.
 			t.Fatalf("Unexpected API call to %s", r.URL.Path)

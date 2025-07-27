@@ -109,7 +109,11 @@ func (handlersInstance *Handlers) Login(responseWriter http.ResponseWriter, requ
 		return
 	}
 
-	authorizationURL := handlersInstance.service.config.AuthCodeURL(stateValue, oauth2.SetAuthURLParam("prompt", "select_account"))
+	authorizationURL := handlersInstance.service.config.AuthCodeURL(
+		stateValue,
+		oauth2.AccessTypeOffline,
+		oauth2.SetAuthURLParam("prompt", "consent"),
+	)
 	http.Redirect(responseWriter, request, authorizationURL, http.StatusFound)
 }
 
@@ -146,7 +150,12 @@ func (handlersInstance *Handlers) Callback(responseWriter http.ResponseWriter, r
 		return
 	}
 
-	// Dynamically check if the scopes in the service's config allow for fetching user info.
+	if oauthToken.RefreshToken == "" {
+		log.Printf("Missing refresh token; re-requesting consent")
+		handlersInstance.Login(responseWriter, request)
+		return
+	}
+
 	hasProfileScope := false
 	for _, scope := range handlersInstance.service.config.Scopes {
 		if scope == string(ScopeProfile) || scope == string(ScopeEmail) {
