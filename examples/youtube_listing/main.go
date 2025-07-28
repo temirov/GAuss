@@ -19,9 +19,9 @@ import (
 )
 
 const (
-	DashboardPath = "/youtube"
-	Root          = "/"
-	appBase       = "http://localhost:8080/"
+	mainPagePath = "/youtube"
+	Root         = "/"
+	baseURL      = "http://localhost:8080/"
 )
 
 func main() {
@@ -35,7 +35,7 @@ func main() {
 	session.NewSession([]byte(clientSecret))
 
 	scopes := gauss.ScopeStrings([]gauss.Scope{gauss.ScopeProfile, gauss.ScopeEmail, gauss.ScopeYouTubeReadonly})
-	authService, err := gauss.NewService(googleClientID, googleClientSecret, appBase, DashboardPath, scopes, *loginTemplateFlag)
+	authService, err := gauss.NewService(googleClientID, googleClientSecret, baseURL, mainPagePath, scopes, *loginTemplateFlag)
 	if err != nil {
 		log.Fatalf("Failed to initialize auth service: %v", err)
 	}
@@ -53,12 +53,12 @@ func main() {
 		log.Fatalf("Failed to parse templates: %v", err)
 	}
 
-	mux.Handle(DashboardPath, requestLogger(gauss.AuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	mux.Handle(mainPagePath, requestLogger(gauss.AuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		renderYouTube(w, r, authService, templates)
 	}))))
 
 	mux.Handle(Root, gauss.AuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, DashboardPath, http.StatusFound)
+		http.Redirect(w, r, mainPagePath, http.StatusFound)
 	})))
 
 	log.Printf("Server starting on port %s", "8080")
